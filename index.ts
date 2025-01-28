@@ -13,11 +13,11 @@ const domainName = config.get("domainName");
 // Provision a DigitalOcean Kubernetes cluster and export its resulting
 // kubeconfig to make it easy to access from the kubectl command line.
 const cluster = new digitalocean.KubernetesCluster("do-cluster", {
-    region: digitalocean.Regions.SFO2,
+    region: digitalocean.Region.NYC2,
     version: "latest",
     nodePool: {
         name: "default",
-        size: digitalocean.DropletSlugs.DropletS2VPCU2GB,
+        size: digitalocean.DropletSlug.DropletS2VCPU4GB,
         nodeCount: nodeCount,
     },
 });
