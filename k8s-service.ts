@@ -60,6 +60,7 @@ export class ServiceDeployment extends pulumi.ComponentResource {
             this.ipAddress =  this.service.status.loadBalancer.ingress[0].ip;
         }
 
+        // todo: template dnsrecord resource name to avoid dup resource name if multiple services are deployed
         if (args.dnsName) {
             const aRecord = new digitalocean.DnsRecord("do-domain-a-rec", {
                 domain: domainName || "example.com",    // Typescript hates optional string so supply a default
