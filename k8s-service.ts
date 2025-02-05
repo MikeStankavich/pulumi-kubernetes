@@ -4,10 +4,9 @@ import * as digitalocean from "@pulumi/digitalocean";
 import * as k8s from "@pulumi/kubernetes";
 import * as k8stypes from "@pulumi/kubernetes/types/input";
 import * as pulumi from "@pulumi/pulumi";
+import {domain} from "./domain";
 
-
-const config = new pulumi.Config();
-const domainName = config.get("domainName");
+const domainName = pulumi.interpolate `${domain.name}`
 
 /**
  * ServiceDeployment is an example abstraction that uses a class to fold together the common pattern of a
@@ -20,10 +19,6 @@ export class ServiceDeployment extends pulumi.ComponentResource {
 
     constructor(name: string, args: ServiceDeploymentArgs, opts?: pulumi.ComponentResourceOptions) {
         super("k8sjs:service:ServiceDeployment", name, {}, opts);
-
-        // instantiate a k8s provider for this service deployment
-        // console.log(kubeconfig)
-        // const provider = new k8s.Provider(`do-k8s-${name}`, { kubeconfig });
 
         const labels = { app: name };
         const container: k8stypes.core.v1.Container = {
@@ -60,13 +55,13 @@ export class ServiceDeployment extends pulumi.ComponentResource {
             this.ipAddress =  this.service.status.loadBalancer.ingress[0].ip;
         }
 
-        // todo: template dnsrecord resource name to avoid dup resource name if multiple services are deployed
         if (args.dnsName) {
-            const aRecord = new digitalocean.DnsRecord("do-domain-a-rec", {
-                domain: domainName || "example.com",    // Typescript hates optional string so supply a default
+            const aRecord = new digitalocean.DnsRecord(`do-a-rec-${name}`, {
+                domain: domainName,
                 type: "A",
                 name: args.dnsName,
-                value: this.ipAddress || "127.0.0.1"    // Typescript hates optional string so supply a default
+                value: pulumi.interpolate `${this.ipAddress}`,    // Typescript hates optional string so use interpolate
+                ttl: 60,
             });
         }
 
@@ -79,6 +74,5 @@ export interface ServiceDeploymentArgs {
     replicas?: number;
     ports?: number[];
     allocateIpAddress?: boolean;
-    domainName?: string;
     dnsName?: string;
 }

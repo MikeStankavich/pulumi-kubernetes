@@ -1,3 +1,3 @@
-name: digitalocean-ts-k8s
+name: monitoring
 runtime: nodejs
-description: Provision a DigitalOcean Kubernetes cluster and deploy to it
+description: Provision a DigitalOcean Kubernetes cluster, deploy guestbook sample, deploy Prometheus and Grafana, and configure monitoring
