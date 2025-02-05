@@ -9,9 +9,10 @@ to deploy this application. See the screenshots below for an example of what the
 1. Pulumi CLI installed, i.e. brew install pulumi
 1. Node.js installed, i.e. brew install node
 1. Digital Ocean CLI installed, i.e. brew install doctl
+1. Here's a one line brew install command for easy copy/paste: `brew install just pulumi node doctl`
 1. An active Digital Ocean account
 1. A Digital Ocean API token. Create one at https://cloud.digitalocean.com/account/api/tokens
-1. Here's a one line brew install command for easy copy/paste: `brew install just pulumi node doctl`
+1. A domain or subdomain that is delegated to Digital Ocean with NS records pointing to Digital Ocean's nameservers.
 
 ### Setup
 1. Clone this repository, for example git clone https://github.com/mikestankavich/pulumi-kubernetes.git
