@@ -1,3 +1,0 @@
-name: cluster
-runtime: nodejs
-description: Provision a DigitalOcean Kubernetes cluster and deploy to it

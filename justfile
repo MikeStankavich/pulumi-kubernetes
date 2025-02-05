@@ -18,11 +18,13 @@ build:
 #    @pulumi stack output --show-secrets
 
 destroy:
-    @echo "Destroying cluster"
-    @if [[ $(pulumi stack ls -j | jq -r '.[] | select(.name == "$PULUMI_STACK") | .name') == "$PULUMI_STACK" ]]; then \
+    @if [[ $(pulumi stack ls -j | jq -r ".[] | select(.name == \"$PULUMI_STACK\") | .name") == "$PULUMI_STACK" ]]; then \
+      echo "Destroying cluster"; \
       pulumi destroy; \
       pulumi stack rm --stack $PULUMI_STACK; \
       rm kubeconfig.yml; \
+    else \
+      echo "Pulumi stack $PULUMI_STACK not found"; \
     fi
 
 open:

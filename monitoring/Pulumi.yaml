@@ -1,3 +1,0 @@
-name: guestbook-monitoring
-runtime: nodejs
-description: Provision a DigitalOcean Kubernetes cluster, deploy guestbook sample, deploy Prometheus and Grafana, and configure monitoring
