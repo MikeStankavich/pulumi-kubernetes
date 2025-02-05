@@ -86,7 +86,8 @@ if (domain.name) {
     domain: domainName,
     type: "A",
     name: "grafana",
-    value: pulumi.interpolate `${grafanaIngressIp}`    // Typescript hates optional string so use interpolate
+    value: pulumi.interpolate `${grafanaIngressIp}`,    // Typescript hates optional string so use interpolate
+    ttl: 60,
   });
 }
 

@@ -60,7 +60,8 @@ export class ServiceDeployment extends pulumi.ComponentResource {
                 domain: domainName,
                 type: "A",
                 name: args.dnsName,
-                value: pulumi.interpolate `${this.ipAddress}`    // Typescript hates optional string so use interpolate
+                value: pulumi.interpolate `${this.ipAddress}`,    // Typescript hates optional string so use interpolate
+                ttl: 60,
             });
         }
 
