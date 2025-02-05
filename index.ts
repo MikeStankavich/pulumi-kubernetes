@@ -1,74 +1,118 @@
-// Copyright 2016-2018, Pulumi Corporation.  All rights reserved.
+// portions Copyright 2016-2018, Pulumi Corporation.  All rights reserved.
 
-import * as digitalocean from "@pulumi/digitalocean";
-import * as kubernetes from "@pulumi/kubernetes";
 import * as pulumi from "@pulumi/pulumi";
+import * as k8s from "@pulumi/kubernetes";
+import {kubeconfig} from "./k8s-cluster";
+import * as k8sService from "./k8s-service";
+import * as digitalocean from "@pulumi/digitalocean";
 
-// Enable some configurable parameters.
+
 const config = new pulumi.Config();
-const nodeCount = config.getNumber("nodeCount") || 3;
-const appReplicaCount = config.getNumber("appReplicaCount") || 5;
 const domainName = config.get("domainName");
 
-// Provision a DigitalOcean Kubernetes cluster and export its resulting
-// kubeconfig to make it easy to access from the kubectl command line.
-const cluster = new digitalocean.KubernetesCluster("do-cluster", {
-    region: digitalocean.Regions.SFO2,
-    version: "latest",
-    nodePool: {
-        name: "default",
-        size: digitalocean.DropletSlugs.DropletS2VPCU2GB,
-        nodeCount: nodeCount,
-    },
+const provider = new k8s.Provider("do-k8s", {kubeconfig});
+
+const redisLeader = new k8sService.ServiceDeployment("redis-leader", {
+    image: "redis",
+    ports: [6379],
+  },
+  {provider: provider});
+
+const redisReplica = new k8sService.ServiceDeployment("redis-replica", {
+    image: "pulumi/guestbook-redis-replica",
+    ports: [6379],
+  },
+  {provider: provider});
+
+const frontend = new k8sService.ServiceDeployment("frontend", {
+    replicas: 3,
+    image: "pulumi/guestbook-php-redis",
+    ports: [80],
+    allocateIpAddress: true,
+    dnsName: "@"
+  },
+  {provider: provider});
+
+// outputs for guestbook frontend
+export const guestbookIp = frontend.ipAddress;
+export const guestbookUrl = pulumi.interpolate `http://${domainName}`;
+
+
+// ----------------------------------------------------------------------------
+// todo: break out the prometheus stack into its own component file
+// ----------------------------------------------------------------------------
+const prometheusNamespace = config.get("prometheusNamespace") || "prometheus";
+const appLabels = {
+  app: "prometheus",
+};
+
+// Create a namespace (user supplies the name of the namespace)
+const prometheusNs = new k8s.core.v1.Namespace(prometheusNamespace, {
+  metadata: {
+    labels: appLabels,
+    name: prometheusNamespace,
+  },
+}, {
+  provider: provider,
 });
-export const kubeconfig = cluster.kubeConfigs[0].rawConfig;
 
-// Now lets actually deploy an application to our new cluster. We begin
-// by creating a new "Provider" object that uses our kubeconfig above,
-// so that any application objects deployed go to our new cluster.
-const provider = new kubernetes.Provider("do-k8s", { kubeconfig });
+// Use Helm to install the Nginx prometheus controller
+// todo: figure out why recreate timed out when I changed this resource name
+const prometheusStack = new k8s.helm.v3.Release("prometheusstack", {
+  chart: "kube-prometheus-stack",
+  namespace: prometheusNamespace,
+  repositoryOpts: {
+    repo: "https://prometheus-community.github.io/helm-charts",
+  },
+  // skipCrds: true,
+  values: {
+    grafana: {
+      // adminPassword: "admin",
+      service: {
+        type: "LoadBalancer"
+      },
+    }
+  },
+  version: "68.3.3",
+}, {
+  provider: provider,
+  dependsOn: prometheusNs,
+  customTimeouts: { create: "10m" },
+});
 
-// Now create a Kubernetes Deployment using the "nginx" container
-// image from the Docker Hub, replicated a number of times, and a
-// load balanced Service in front listening for traffic on port 80.
-const appLabels = { "app": "app-nginx" };
-const app = new kubernetes.apps.v1.Deployment("do-app-dep", {
-    spec: {
-        selector: { matchLabels: appLabels },
-        replicas: appReplicaCount,
-        template: {
-            metadata: { labels: appLabels },
-            spec: {
-                containers: [{
-                    name: "nginx",
-                    image: "nginx",
-                }],
-            },
-        },
-    },
-}, { provider });
-const appService = new kubernetes.core.v1.Service("do-app-svc", {
-    spec: {
-        type: "LoadBalancer",
-        selector: app.spec.template.metadata.labels,
-        ports: [{ port: 80 }],
-    },
-}, { provider });
-export const ingressIp = appService.status.loadBalancer.ingress[0].ip;
+// Get the Grafana service so that we can extract its IP address
+const grafanaService: k8s.core.v1.Service = k8s.core.v1.Service.get(
+  "grafana-service",
+  pulumi.interpolate `${prometheusNs.metadata.name}/${prometheusStack.status.name}-grafana`
+)
+export const grafanaIngressIp = grafanaService.status.loadBalancer.ingress[0].ip
 
-// Finally, optionally set up a DigitalOcean DNS entry for our
-// resulting load balancer's IP address. This gives us a stable URL
-// for our cluster'sapplication.
+// Get the Grafana secret created by the helm chart so that we can extract the default admin creds
+const grafanaSecret: k8s.core.v1.Secret = k8s.core.v1.Secret.get(
+  "grafana-secret",
+  pulumi.interpolate `${prometheusNs.metadata.name}/${prometheusStack.status.name}-grafana`
+)
+
+export const grafanaAdminUser = grafanaSecret.data["admin-user"].apply((value) => {
+  const buffer = Buffer.from(value, "base64");
+  return buffer.toString("utf-8");
+});
+
+export const grafanaAdminPass = grafanaSecret.data["admin-password"].apply((value) => {
+  const buffer = Buffer.from(value, "base64");
+  return buffer.toString("utf-8");
+});
+
+
 if (domainName) {
-    const domain = new digitalocean.Domain("do-domain", {
-        name: domainName,
-        ipAddress: ingressIp,
-    });
-
-    const cnameRecord = new digitalocean.DnsRecord("do-domain-cname", {
-        domain: domain.name,
-        type: "CNAME",
-        name: "www",
-        value: "@",
-    });
+  const aRecord = new digitalocean.DnsRecord("do-grafana-a-rec", {
+    domain: domainName || "example.com",    // Typescript hates optional string so supply a default
+    type: "A",
+    name: "grafana",
+    value: grafanaIngressIp || "127.0.0.1"    // Typescript hates optional string so supply a default
+  });
 }
+
+export const grafanaUrl = pulumi.interpolate `http://grafana.${domainName}`;
+// export const grafanaPassword = pulumi.interpolate `http://grafana.${domainName}`;
+
