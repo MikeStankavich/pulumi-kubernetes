@@ -1,10 +1,10 @@
-# 4ir Kubernetes Guestbook Prometheus and Grafana challenge
+# Kubernetes Guestbook Prometheus and Grafana challenge
 
 ### Instructions to deploy the application.
 This example uses Pulumi Typescript with Digital Ocean. You will need to install the following prerequisites 
 to deploy this application. See the screenshots below for an example of what the deployment process looks like.
 
-#### Prerequisites
+### Prerequisites
 1. The just cli installed, i.e. brew install just
 1. Pulumi CLI installed, i.e. brew install pulumi
 1. Node.js installed, i.e. brew install node
@@ -12,7 +12,8 @@ to deploy this application. See the screenshots below for an example of what the
 1. An active Digital Ocean account
 1. A Digital Ocean API token. Create one at https://cloud.digitalocean.com/account/api/tokens
 1. Here's a one line brew install command for easy copy/paste: `brew install just pulumi node doctl`
-#### Setup
+
+### Setup
 1. Clone this repository, for example git clone https://github.com/mikestankavich/pulumi-kubernetes.git
 1. Change to the directory of the cloned repository, for example `cd pulumi-kubernetes`
 1. Create a `.env` file in the project root
@@ -30,7 +31,7 @@ load the environment variables in the `.env` file when you change to the project
 1. Navigate to Dashboards, and then open the Kubernetes / Compute Resources / Workload dashboard to see compute
    and network metrics for the guestbook application pods
 
-### Tear down the cloud resources so that you don't run up your digital ocean bill.
+### Tear down the cloud resources so that you don't run up a Digital Ocean bill.
 1. Run `just destroy` to tear down the application, the monitoring, and the kubernetes cluster
 
 ### Screenshots
